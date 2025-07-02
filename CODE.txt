@@ -1,0 +1,433 @@
+package org.example;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.*;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
+import org.json.*;
+
+public class SNMPClientGUI extends JFrame {
+    private final JTable systemTable;
+    private final JTable tcpTable;
+    private final JTextArea icmpTextArea;
+    private final DefaultTableModel systemTableModel;
+    private final DefaultTableModel tcpTableModel;
+    private final JTextField sysContactField;
+    private final JTextField sysNameField;
+    private final JTextField sysLocationField;
+    private final Color primaryColor = new Color(147, 112, 219); // Light purple
+    private final Color secondaryColor = new Color(230, 220, 250); // Very light purple
+    private final Color accentColor = new Color(255, 182, 193); // Light pink
+    private final Color textColor = new Color(70, 70, 70); // Dark gray for text
+
+    public SNMPClientGUI() {
+        setTitle("SNMP Management Console");
+        setSize(900, 650);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null); // Center on screen
+        getContentPane().setBackground(secondaryColor);
+
+        // Set custom look and feel
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Set custom fonts
+        Font titleFont = new Font("Segoe UI", Font.BOLD, 16);
+        Font defaultFont = new Font("Segoe UI", Font.PLAIN, 14);
+        Font buttonFont = new Font("Segoe UI", Font.BOLD, 13);
+
+        UIManager.put("Label.font", defaultFont);
+        UIManager.put("Button.font", buttonFont);
+        UIManager.put("TextField.font", defaultFont);
+        UIManager.put("Table.font", defaultFont);
+        UIManager.put("TableHeader.font", new Font("Segoe UI", Font.BOLD, 14));
+        UIManager.put("TabbedPane.font", titleFont);
+
+        // Create main tabbed pane with custom styling
+        JTabbedPane tabbedPane = new JTabbedPane();
+        tabbedPane.setBackground(secondaryColor);
+        tabbedPane.setForeground(textColor);
+        tabbedPane.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        // ----- System Group Tab -----
+        JPanel systemPanel = createPanel();
+
+        // Title panel
+        JPanel systemTitlePanel = new JPanel(new BorderLayout());
+        systemTitlePanel.setBackground(primaryColor);
+        systemTitlePanel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+
+        JLabel systemTitle = new JLabel("System Information");
+        systemTitle.setFont(titleFont);
+        systemTitle.setForeground(Color.WHITE);
+        systemTitlePanel.add(systemTitle, BorderLayout.WEST);
+
+        JButton getSystemDataButton = createButton("Refresh Data");
+        systemTitlePanel.add(getSystemDataButton, BorderLayout.EAST);
+
+        systemPanel.add(systemTitlePanel, BorderLayout.NORTH);
+
+        // System table
+        systemTableModel = new DefaultTableModel(new Object[]{"Parameter", "Value"}, 0);
+        systemTable = new JTable(systemTableModel);
+        styleTable(systemTable);
+        JScrollPane systemScrollPane = new JScrollPane(systemTable);
+        systemScrollPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        systemPanel.add(systemScrollPane, BorderLayout.CENTER);
+
+        // Form panel for updates
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBackground(secondaryColor);
+        formPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(primaryColor, 1),
+                "Update System Parameters",
+                0, 0, titleFont, primaryColor));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        sysContactField = createTextField();
+        sysNameField = createTextField();
+        sysLocationField = createTextField();
+
+        JButton updateSysContactButton = createButton("Update");
+        JButton updateSysNameButton = createButton("Update");
+        JButton updateSysLocationButton = createButton("Update");
+
+        // Row 1
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.2;
+        formPanel.add(createLabel("System Contact:"), gbc);
+
+        gbc.gridx = 1; gbc.weightx = 0.6;
+        formPanel.add(sysContactField, gbc);
+
+        gbc.gridx = 2; gbc.weightx = 0.2;
+        formPanel.add(updateSysContactButton, gbc);
+
+        // Row 2
+        gbc.gridx = 0; gbc.gridy = 1;
+        formPanel.add(createLabel("System Name:"), gbc);
+
+        gbc.gridx = 1;
+        formPanel.add(sysNameField, gbc);
+
+        gbc.gridx = 2;
+        formPanel.add(updateSysNameButton, gbc);
+
+        // Row 3
+        gbc.gridx = 0; gbc.gridy = 2;
+        formPanel.add(createLabel("System Location:"), gbc);
+
+        gbc.gridx = 1;
+        formPanel.add(sysLocationField, gbc);
+
+        gbc.gridx = 2;
+        formPanel.add(updateSysLocationButton, gbc);
+
+        systemPanel.add(formPanel, BorderLayout.SOUTH);
+
+        // ----- TCP Table Tab -----
+        JPanel tcpPanel = createPanel();
+
+        // Title panel
+        JPanel tcpTitlePanel = new JPanel(new BorderLayout());
+        tcpTitlePanel.setBackground(primaryColor);
+        tcpTitlePanel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+
+        JLabel tcpTitle = new JLabel("TCP Connection Table");
+        tcpTitle.setFont(titleFont);
+        tcpTitle.setForeground(Color.WHITE);
+        tcpTitlePanel.add(tcpTitle, BorderLayout.WEST);
+
+        JButton getTCPDataButton = createButton("Refresh Data");
+        tcpTitlePanel.add(getTCPDataButton, BorderLayout.EAST);
+
+        tcpPanel.add(tcpTitlePanel, BorderLayout.NORTH);
+
+        // TCP table
+        tcpTableModel = new DefaultTableModel();
+        tcpTable = new JTable(tcpTableModel);
+        styleTable(tcpTable);
+        JScrollPane tcpScrollPane = new JScrollPane(tcpTable);
+        tcpScrollPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        tcpPanel.add(tcpScrollPane, BorderLayout.CENTER);
+
+        // ----- ICMP Statistics Tab -----
+        JPanel icmpPanel = createPanel();
+
+        // Title panel
+        JPanel icmpTitlePanel = new JPanel(new BorderLayout());
+        icmpTitlePanel.setBackground(primaryColor);
+        icmpTitlePanel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+
+        JLabel icmpTitle = new JLabel("ICMP Statistics");
+        icmpTitle.setFont(titleFont);
+        icmpTitle.setForeground(Color.WHITE);
+        icmpTitlePanel.add(icmpTitle, BorderLayout.WEST);
+
+        JButton getICMPDataButton = createButton("Refresh Data");
+        icmpTitlePanel.add(getICMPDataButton, BorderLayout.EAST);
+
+        icmpPanel.add(icmpTitlePanel, BorderLayout.NORTH);
+
+        // ICMP text area
+        icmpTextArea = new JTextArea();
+        icmpTextArea.setEditable(false);
+        icmpTextArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        icmpTextArea.setBackground(Color.WHITE);
+        icmpTextArea.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+
+        JScrollPane icmpScrollPane = new JScrollPane(icmpTextArea);
+        icmpScrollPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        icmpPanel.add(icmpScrollPane, BorderLayout.CENTER);
+
+        // Add tabs with icons (you'll need to provide actual icons)
+        ImageIcon systemIcon = createIcon("icons/system.png", "System");
+        ImageIcon tcpIcon = createIcon("icons/tcp.png", "TCP");
+        ImageIcon icmpIcon = createIcon("icons/icmp.png", "ICMP");
+
+        tabbedPane.addTab("System Group", systemIcon, systemPanel);
+        tabbedPane.addTab("TCP Table", tcpIcon, tcpPanel);
+        tabbedPane.addTab("ICMP Statistics", icmpIcon, icmpPanel);
+
+        // Set tab appearance
+        for (int i = 0; i < tabbedPane.getTabCount(); i++) {
+            tabbedPane.setBackgroundAt(i, secondaryColor);
+        }
+
+        add(tabbedPane);
+
+        // Add action listeners
+        getSystemDataButton.addActionListener(e -> loadSystemData());
+        getTCPDataButton.addActionListener(e -> loadTCPData());
+        getICMPDataButton.addActionListener(e -> loadICMPData());
+
+        updateSysContactButton.addActionListener(e -> updateSNMPData("sysContact", sysContactField.getText()));
+        updateSysNameButton.addActionListener(e -> updateSNMPData("sysName", sysNameField.getText()));
+        updateSysLocationButton.addActionListener(e -> updateSNMPData("sysLocation", sysLocationField.getText()));
+    }
+
+    // Helper methods for UI components
+    private JPanel createPanel() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBackground(secondaryColor);
+        panel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+        return panel;
+    }
+
+    private JButton createButton(String text) {
+        JButton button = new JButton(text);
+        button.setBackground(accentColor);
+        button.setForeground(textColor);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return button;
+    }
+
+    private JLabel createLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setForeground(textColor);
+        return label;
+    }
+
+    private JTextField createTextField() {
+        JTextField textField = new JTextField();
+        textField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(primaryColor, 1),
+                BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+        return textField;
+    }
+
+    private void styleTable(JTable table) {
+        table.setRowHeight(25);
+        table.setIntercellSpacing(new Dimension(10, 5));
+        table.setGridColor(new Color(230, 230, 250));
+        table.setSelectionBackground(primaryColor);
+        table.setSelectionForeground(Color.WHITE);
+        table.setShowVerticalLines(true);
+        table.setShowHorizontalLines(true);
+
+        JTableHeader header = table.getTableHeader();
+        header.setBackground(primaryColor);
+        header.setForeground(Color.WHITE);
+        header.setFont(new Font("Segoe UI", Font.BOLD, 14));
+    }
+
+    private ImageIcon createIcon(String path, String fallback) {
+        try {
+            return new ImageIcon(path);
+        } catch (Exception e) {
+            // Return a colored square as fallback
+            BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_RGB);
+            Graphics g = image.getGraphics();
+            g.setColor(primaryColor);
+            g.fillRect(0, 0, 16, 16);
+            g.dispose();
+            return new ImageIcon(image);
+        }
+    }
+
+    private void loadSystemData() {
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        String response = fetchSNMPData("http://localhost/snmp2/system.php");
+        if (response != null) {
+            try {
+                JSONObject obj = new JSONObject(response);
+                systemTableModel.setRowCount(0);
+                for (String key : obj.keySet()) {
+                    systemTableModel.addRow(new Object[]{key, obj.get(key)});
+                }
+
+                // Update text fields with current values
+                for (int i = 0; i < systemTableModel.getRowCount(); i++) {
+                    String key = (String) systemTableModel.getValueAt(i, 0);
+                    String value = systemTableModel.getValueAt(i, 1).toString();
+
+                    if (key.equals("sysContact")) {
+                        sysContactField.setText(value);
+                    } else if (key.equals("sysName")) {
+                        sysNameField.setText(value);
+                    } else if (key.equals("sysLocation")) {
+                        sysLocationField.setText(value);
+                    }
+                }
+            } catch (JSONException e) {
+                showError("JSON parsing error: " + e.getMessage());
+            }
+        }
+        setCursor(Cursor.getDefaultCursor());
+    }
+
+    private void loadTCPData() {
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        String response = fetchSNMPData("http://localhost/snmp2/tcp.php");
+        if (response != null) {
+            try {
+                JSONArray array = new JSONArray(response);
+                tcpTableModel.setRowCount(0);
+                tcpTableModel.setColumnCount(0);
+                if (array.length() > 0 && array.get(0) instanceof JSONObject) {
+                    JSONObject firstRow = array.getJSONObject(0);
+                    for (String key : firstRow.keySet()) {
+                        tcpTableModel.addColumn(key);
+                    }
+                    for (int i = 0; i < array.length(); i++) {
+                        JSONObject row = array.getJSONObject(i);
+                        Object[] rowData = row.keySet().stream().map(row::get).toArray();
+                        tcpTableModel.addRow(rowData);
+                    }
+                }
+            } catch (JSONException e) {
+                showError("JSON parsing error: " + e.getMessage());
+            }
+        }
+        setCursor(Cursor.getDefaultCursor());
+    }
+
+    private void loadICMPData() {
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        String response = fetchSNMPData("http://localhost/snmp2/icmp.php");
+        if (response != null) {
+            try {
+                JSONArray array = new JSONArray(response);
+                StringBuilder sb = new StringBuilder();
+                sb.append("ICMP Statistics\n");
+                sb.append("==============\n\n");
+
+                for (int i = 0; i < array.length(); i++) {
+                    sb.append("Value ").append(i + 1).append(": ").append(array.get(i)).append("\n");
+                }
+                icmpTextArea.setText(sb.toString());
+            } catch (JSONException e) {
+                showError("JSON parsing error: " + e.getMessage());
+            }
+        }
+        setCursor(Cursor.getDefaultCursor());
+    }
+
+    private String fetchSNMPData(String urlString) {
+        try {
+            URL url = new URL(urlString);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            StringBuilder responseBuilder = new StringBuilder();
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                responseBuilder.append(line);
+            }
+
+            reader.close();
+            return responseBuilder.toString();
+        } catch (IOException e) {
+            showError("Connection error: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private void updateSNMPData(String field, String value) {
+        if (value.trim().isEmpty()) {
+            showError("Value cannot be empty");
+            return;
+        }
+
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        try {
+            String url = "http://localhost/snmp2/update.php?field=" +
+                    URLEncoder.encode(field, StandardCharsets.UTF_8) +
+                    "&value=" + URLEncoder.encode(value, StandardCharsets.UTF_8);
+            String response = fetchSNMPData(url);
+
+            if (response != null) {
+                try {
+                    JSONObject json = new JSONObject(response);
+                    String message = json.getString("message");
+                    if (json.has("status") && json.getString("status").equals("success")) {
+                        showSuccess(message);
+                        loadSystemData(); // Refresh data
+                    } else {
+                        showError(message);
+                    }
+                } catch (JSONException e) {
+                    showError("Error parsing update response.");
+                }
+            }
+        } finally {
+            setCursor(Cursor.getDefaultCursor());
+        }
+    }
+
+    private void showError(String message) {
+        JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private void showSuccess(String message) {
+        JOptionPane.showMessageDialog(this, message, "Success", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                // Set system look and feel
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            new SNMPClientGUI().setVisible(true);
+        });
+    }
+}
