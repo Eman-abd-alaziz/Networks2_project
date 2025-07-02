@@ -1,12 +1,8 @@
 # 📄 SNMP and HTTP 
 
 <img src="image.png" alt="banner" width="400"/>
-
-**Department:** Computer Engineering  
+ 
 **Course:** Computer Networks 2 (10636455)  
-**Instructor:** Dr. Raed Alqadi  
-**Semester:** Spring 2025  
-**Assignment:** #2
 
 ---
 
