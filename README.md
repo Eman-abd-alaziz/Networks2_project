@@ -1,6 +1,6 @@
-# 📄 SNMP and HTTP Assignment
+# 📄 SNMP and HTTP 
 
-![Badge](https://img.shields.io/badge/Computer_Networks2-SNMP_HTTP_Assignment-green)
+![banner](image.png)
 
 **Department:** Computer Engineering  
 **Course:** Computer Networks 2 (10636455)  
