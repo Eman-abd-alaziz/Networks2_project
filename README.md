@@ -1,6 +1,6 @@
 # 📄 SNMP and HTTP 
+(image.png)
 
-<img src="image.png" alt="banner" width="400"/>
  
 **Course:** Computer Networks 2 (10636455)  
 
