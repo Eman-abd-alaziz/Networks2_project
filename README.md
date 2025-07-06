@@ -1,5 +1,5 @@
 # 📄 SNMP and HTTP 
-(image.png)
+![SNMP and HTTP Logo] (image.png)
 
  
 **Course:** Computer Networks 2 (10636455)  
